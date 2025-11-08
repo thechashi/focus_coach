@@ -16,6 +16,14 @@ let sessionData = {
   }
 };
 
+// Custom categories defined by users
+// Format: { 'Category Name': { sites: ['site1.com', 'site2.com'], score: 0-100 } }
+let customCategories = {};
+
+// Custom distraction percentages for default categories
+// Format: { 'productive': 5, 'social': 90, ... }
+let customDistractionLevels = {};
+
 // Category classification rules
 const categoryRules = {
   productive: [
@@ -241,6 +249,16 @@ function categorizeURL(url) {
   try {
     const domain = new URL(url).hostname.toLowerCase();
 
+    // Check custom categories first (higher priority)
+    for (const [categoryName, categoryData] of Object.entries(customCategories)) {
+      for (const site of categoryData.sites) {
+        if (domain.includes(site.toLowerCase())) {
+          return categoryName;
+        }
+      }
+    }
+
+    // Then check default categories
     for (const [category, sites] of Object.entries(categoryRules)) {
       for (const site of sites) {
         if (domain.includes(site)) {
@@ -256,6 +274,17 @@ function categorizeURL(url) {
 
 // Get distraction level for current URL
 function getDistractionLevel(category) {
+  // Check if it's a custom category first
+  if (customCategories[category]) {
+    return customCategories[category].score;
+  }
+
+  // Check if user has customized the default category percentage
+  if (customDistractionLevels[category] !== undefined) {
+    return customDistractionLevels[category];
+  }
+
+  // Otherwise use default distraction map
   const distractionMap = {
     productive: 0,    // 0% distraction
     neutral: 20,      // 20% distraction (email breaks are ok)
@@ -297,6 +326,11 @@ chrome.tabs.onActivated.addListener((activeInfo) => {
       };
 
       sessionData.dailyLog.push(entry);
+
+      // Track stats for both default and custom categories
+      if (!sessionData.categoryStats[category]) {
+        sessionData.categoryStats[category] = 0;
+      }
       sessionData.categoryStats[category] += duration;
 
       // Save to storage
@@ -431,6 +465,113 @@ function saveToStorage() {
   });
 }
 
+// Load custom categories from storage
+function loadCustomCategories() {
+  chrome.storage.local.get(['customCategories'], (result) => {
+    if (result.customCategories) {
+      customCategories = result.customCategories;
+    }
+  });
+}
+
+// Save custom categories to storage
+function saveCustomCategories() {
+  chrome.storage.local.set({ customCategories: customCategories });
+}
+
+// Add or update a custom category
+function setCustomCategory(categoryName, sites, score) {
+  customCategories[categoryName] = { sites, score };
+  saveCustomCategories();
+}
+
+// Delete a custom category
+function deleteCustomCategory(categoryName) {
+  delete customCategories[categoryName];
+  saveCustomCategories();
+}
+
+// Get default category rules
+function getDefaultCategories() {
+  return categoryRules;
+}
+
+// Add site to default category
+function addSiteToDefaultCategory(categoryName, site) {
+  if (categoryRules[categoryName]) {
+    if (!categoryRules[categoryName].includes(site)) {
+      categoryRules[categoryName].push(site);
+      saveDefaultCategories();
+      return true;
+    }
+  }
+  return false;
+}
+
+// Remove site from default category
+function removeSiteFromDefaultCategory(categoryName, site) {
+  if (categoryRules[categoryName]) {
+    const index = categoryRules[categoryName].indexOf(site);
+    if (index > -1) {
+      categoryRules[categoryName].splice(index, 1);
+      saveDefaultCategories();
+      return true;
+    }
+  }
+  return false;
+}
+
+// Save default categories to storage
+function saveDefaultCategories() {
+  chrome.storage.local.set({ defaultCategoryRules: categoryRules });
+}
+
+// Load default categories from storage (override defaults if user modified them)
+function loadDefaultCategories() {
+  chrome.storage.local.get(['defaultCategoryRules'], (result) => {
+    if (result.defaultCategoryRules) {
+      // Merge user modifications with default rules
+      Object.keys(result.defaultCategoryRules).forEach(category => {
+        if (categoryRules[category]) {
+          categoryRules[category] = result.defaultCategoryRules[category];
+        }
+      });
+    }
+  });
+}
+
+// Load custom distraction levels
+function loadCustomDistractionLevels() {
+  chrome.storage.local.get(['customDistractionLevels'], (result) => {
+    if (result.customDistractionLevels) {
+      customDistractionLevels = result.customDistractionLevels;
+    }
+  });
+}
+
+// Save custom distraction levels
+function saveCustomDistractionLevels() {
+  chrome.storage.local.set({ customDistractionLevels: customDistractionLevels });
+}
+
+// Set custom distraction level for a default category
+function setCustomDistractionLevel(categoryName, level) {
+  customDistractionLevels[categoryName] = level;
+  saveCustomDistractionLevels();
+}
+
+// Get all distraction levels (default + custom)
+function getAllDistractionLevels() {
+  const defaults = {
+    productive: 0,
+    neutral: 20,
+    ecommerce: 50,
+    video: 80,
+    social: 95
+  };
+  return { ...defaults, ...customDistractionLevels };
+}
+
 // Reset daily data at midnight
 function checkAndResetDaily() {
   chrome.storage.local.get(['lastReset'], (result) => {
@@ -519,7 +660,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       dailyLog: sessionData.dailyLog,
       categoryStats: sessionData.categoryStats
     });
+  } else if (request.action === 'getCustomCategories') {
+    sendResponse({ customCategories });
+  } else if (request.action === 'saveCustomCategory') {
+    setCustomCategory(request.categoryName, request.sites, request.score);
+    sendResponse({ success: true });
+  } else if (request.action === 'deleteCustomCategory') {
+    deleteCustomCategory(request.categoryName);
+    sendResponse({ success: true });
+  } else if (request.action === 'getDefaultCategories') {
+    sendResponse({
+      categories: getDefaultCategories(),
+      distractionLevels: getAllDistractionLevels()
+    });
+  } else if (request.action === 'addSiteToDefaultCategory') {
+    const success = addSiteToDefaultCategory(request.categoryName, request.site);
+    sendResponse({ success });
+  } else if (request.action === 'removeSiteFromDefaultCategory') {
+    const success = removeSiteFromDefaultCategory(request.categoryName, request.site);
+    sendResponse({ success });
+  } else if (request.action === 'setCustomDistractionLevel') {
+    setCustomDistractionLevel(request.categoryName, request.level);
+    sendResponse({ success: true });
   }
+  return true; // Keep message channel open for async responses
 });
 
 // Initialize on install/update
@@ -534,6 +698,11 @@ chrome.runtime.onInstalled.addListener(() => {
       chrome.storage.local.set({ lastReset: new Date().toISOString() });
     }
   });
+
+  // Load user modifications to categories
+  loadCustomCategories();
+  loadDefaultCategories();
+  loadCustomDistractionLevels();
 });
 
 // Initialize on startup
@@ -542,5 +711,14 @@ chrome.storage.local.get(['lastReset'], (result) => {
     chrome.storage.local.set({ lastReset: new Date().toISOString() });
   }
 });
+
+// Load custom categories on startup
+loadCustomCategories();
+
+// Load default categories (user modifications) on startup
+loadDefaultCategories();
+
+// Load custom distraction levels on startup
+loadCustomDistractionLevels();
 
 

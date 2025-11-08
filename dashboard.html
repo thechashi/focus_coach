@@ -380,13 +380,66 @@
                 </div>
             </div>
         </div>
-        
+
+        <!-- Default Categories Management -->
+        <div class="card">
+            <h2>📋 Default Categories</h2>
+            <p style="font-size: 12px; color: #666; margin-bottom: 15px;">
+                View and customize the built-in categories. Click to expand and add/remove websites.
+            </p>
+
+            <div id="defaultCategoriesList"></div>
+        </div>
+
+        <!-- Custom Categories Settings -->
+        <div class="card">
+            <h2>⚙️ Custom Categories</h2>
+            <p style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                Create your own categories with custom distraction scores. You can add <strong>multiple websites</strong> to each category!
+            </p>
+            <p style="font-size: 11px; color: #999; margin-bottom: 15px; font-style: italic;">
+                Example: Add "My Work" category with sites: jira.com, confluence.com, monday.com at 5% distraction
+            </p>
+
+            <div id="customCategoriesList"></div>
+
+            <div style="margin-top: 20px; padding-top: 20px; border-top: 2px solid #f0f0f0;">
+                <h3 style="font-size: 14px; margin-bottom: 10px; color: #333;">➕ Add New Category</h3>
+
+                <label style="display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600;">Category Name</label>
+                <input type="text" id="categoryName" placeholder="e.g., My Work, Gaming, Learning"
+                       style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+
+                <label style="display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600;">
+                    Websites <span style="font-weight: normal; color: #999;">(you can add multiple, separate with commas)</span>
+                </label>
+                <input type="text" id="categorySites" placeholder="jira.com, confluence.com, monday.com, slack.com"
+                       style="width: 100%; padding: 10px; margin-bottom: 4px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                <p style="font-size: 11px; color: #999; margin-bottom: 10px; margin-top: 0;">
+                    💡 Tip: Add as many sites as you want, just separate them with commas
+                </p>
+
+                <label style="display: block; font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 600;">Distraction Score</label>
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 4px;">
+                    <input type="number" id="categoryScore" placeholder="0"
+                           min="0" max="100" value="0"
+                           style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                    <span style="font-size: 12px; color: #666; white-space: nowrap;">0-100</span>
+                </div>
+                <p style="font-size: 11px; color: #999; margin-bottom: 10px; margin-top: 0;">
+                    0 = Very productive | 50 = Neutral | 100 = Very distracting
+                </p>
+
+                <button class="btn-primary" id="addCategoryBtn" style="width: 100%;">+ Add Category</button>
+            </div>
+        </div>
+
         <div class="button-group">
             <button class="btn-primary" id="refreshBtn">🔄 Refresh</button>
             <button class="btn-secondary" id="closeBtn">✕ Close</button>
         </div>
     </div>
-    
+
     <script src="dashboard.js"></script>
 </body>
 </html>
